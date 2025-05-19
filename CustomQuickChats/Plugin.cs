@@ -6,7 +6,7 @@ using UnityEngine;
 
 namespace CustomQuickChats
 {
-    [BepInPlugin("customquickchats.killacon", "Custom Quick Chats", "1.0.0")]
+    [BepInPlugin("customquickchats.killacon", "Custom Quick Chats", "0.2")]
     public class Plugin : BaseUnityPlugin
     {
         public static ConfigEntry<bool> Enabled;
@@ -51,6 +51,8 @@ namespace CustomQuickChats
         public static ConfigEntry<string> SorryMsg;
         public static ConfigEntry<string> NoProblemMsg;
 
+        public static ConfigEntry<int> CustomNetID;
+
         internal ManualLogSource mls;
         private static Plugin Instance;
 
@@ -64,6 +66,8 @@ namespace CustomQuickChats
                 Instance = this;
             }
             Enabled = Config.Bind("General", "Enabled", true, "Enable or disable custom quick chats");
+            //CustomNetID = Config.Bind("General", "CustomNetID", 0, "Custom net ID for quick chats. Set to 0 to use default net ID.");
+
 
             OverHereMsg = Config.Bind("QuickChats", "OverHere", "Over here!", "");
             TooEasyMsg = Config.Bind("QuickChats", "TooEasy", "Too easy.", "");
