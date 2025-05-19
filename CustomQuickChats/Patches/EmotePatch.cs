@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using BepInEx.Configuration;
 
 // TODO
-// add controller support
 // figure out UI support (only change popup, not quickchats from others)
 // test more
 
@@ -14,14 +13,15 @@ namespace CustomQuickChats.Patches
     [HarmonyPatch(typeof(EmoteSystem), "ReceiveEvent")]
     class ReceiveEventPatch
     {
-        // allows use of EmoteSystem.emoteState
+        // allow use of protected vars
         static readonly AccessTools.FieldRef<EmoteSystem, emoteState> emoteStateRef =
             AccessTools.FieldRefAccess<EmoteSystem, emoteState>("emoteState");
-        // alows use of EmoteSystem.possibleContent
         static readonly AccessTools.FieldRef<EmoteSystem, EmoteMeanings[]> possibleContentRef =
             AccessTools.FieldRefAccess<EmoteSystem, EmoteMeanings[]>("possibleContent");
-        //static readonly AccessTools.FieldRef<EmoteSystem, bool> triggerNeedsReleasingRef =
-        //    AccessTools.FieldRefAccess<EmoteSystem, bool>("TriggerNeedsReleasing");                       triggerNeedsReleasingRef(__instance) = true;
+        static readonly AccessTools.FieldRef<EmoteSystem, bool> triggerNeedsReleasingRef =
+            AccessTools.FieldRefAccess<EmoteSystem, bool>("TriggerNeedsReleasing");
+        static readonly AccessTools.FieldRef<EmoteSystem, int> EmoteLimitRemainingRef =
+            AccessTools.FieldRefAccess<EmoteSystem, int>("EmoteLimitRemaining");
 
         // prefix to happen before original method
         static bool Prefix(EmoteSystem __instance, InputEvent e)
@@ -32,63 +32,56 @@ namespace CustomQuickChats.Patches
                 //Debug.Log($"[CustomQuickChats] emoteState is: {emoteStateRef(__instance)}");
                 return true;
             }
-            if (e.Changed && e.Valueb)
+            // confirms emote limit was not reached
+            if (EmoteLimitRemainingRef(__instance) <= 0)
             {
-                int index = -1;
-                //Debug.Log($"[CustomQuickChats] Selected emote direction: {e.Key}, index: {index}");
-                switch (e.Key)
+                return true;
+            }
+                if (e.Changed && e.Valueb) // confirm button has been released
                 {
-                    case InputEvent.InputKey.OrthoUp2:
-                        index = (int)emoteDirections.UP;
-                        break;
-                    case InputEvent.InputKey.OrthoRight2:
-                        index = (int)emoteDirections.RIGHT;
-                        break;
-                    case InputEvent.InputKey.OrthoDown2:
-                        index = (int)emoteDirections.DOWN;
-                        break;
-                    case InputEvent.InputKey.OrthoLeft2:
-                        index = (int)emoteDirections.LEFT;
-                        break;
-                    default:
+                    // Determine which emote was selected
+                    int index = -1;
+                    //Debug.Log($"[CustomQuickChats] Selected emote direction: {e.Key}, index: {index}");
+                    switch (e.Key)
+                    {
+                        case InputEvent.InputKey.OrthoUp2:
+                            index = (int)emoteDirections.UP;
+                            break;
+                        case InputEvent.InputKey.OrthoRight2:
+                            index = (int)emoteDirections.RIGHT;
+                            break;
+                        case InputEvent.InputKey.OrthoDown2:
+                            index = (int)emoteDirections.DOWN;
+                            break;
+                        case InputEvent.InputKey.OrthoLeft2:
+                            index = (int)emoteDirections.LEFT;
+                            break;
+                        default:
+                            return true;
+                    }
+                    // Confirm custom emote exists
+                    EmoteMeanings[] possibleContent = possibleContentRef(__instance);
+                    if (index < 0 || index >= possibleContent.Length)
                         return true;
-                }
+                    
+                    // Retrieve custom message
+                    EmoteMeanings requestedEmote = possibleContent[index];
+                    string originalMessage = EmoteSystem.EmoteConverter(requestedEmote);
+                    string customText = MessageMapper.GetCustomMessage(originalMessage);
+                    //Debug.Log($"[CustomQuickChats] Original message: \"{originalMessage}\" | Custom message: \"{customText}\"");
 
-                EmoteMeanings[] possibleContent = possibleContentRef(__instance);
-                if (index < 0 || index >= possibleContent.Length)
-                    return true;
-
-                EmoteMeanings requestedEmote = possibleContent[index];
-                string originalMessage = EmoteSystem.EmoteConverter(requestedEmote);
-                string customText = MessageMapper.GetCustomMessage(originalMessage);
-                //Debug.Log($"[CustomQuickChats] Original message: \"{originalMessage}\" | Custom message: \"{customText}\"");
-
-
-                // Send custom message
-                //GameState.ChatSystem.NewChatMessage(customText, requestedEmote, LobbyPlayer.networkNumber);
-
-                //if (Plugin.CustomNetID.Value == 0)
-                //{
+                    // actually sends the message
                     var netId = (int)__instance.LobbyPlayer.networkNumber;
                     __instance.animator.SetInteger("Direction", (int)index);
                     __instance.animator.SetTrigger("Confirm");
                     GameState.ChatSystem.NewChatMessage(customText, EmoteMeanings.CHAT_Text, netId);
                     emoteStateRef(__instance) = emoteState.EmoteSent;
-                //}
-                //else
-                //{
-                //    __instance.animator.SetInteger("Direction", (int)index);
-                //    __instance.animator.SetTrigger("Confirm");
-                //    GameState.ChatSystem.NewChatMessage(customText, EmoteMeanings.CHAT_Text, Plugin.CustomNetID.Value);
-                //    emoteStateRef(__instance) = emoteState.EmoteSent;
-                //}
-            }
-            //emoteStateRef(__instance) = emoteState.EmoteSent;
+                    EmoteLimitRemainingRef(__instance)--;
+                }
             return false; // Skip original ReceiveEvent
-
         }
     }
-    // handles mapping of default messages to custom messages
+    // handles mapping of custom messages
     static class MessageMapper
     {
         private static readonly Dictionary<string, ConfigEntry<string>> messageMap = new Dictionary<string, ConfigEntry<string>>()
@@ -124,8 +117,6 @@ namespace CustomQuickChats.Patches
             { "Glue here!", Plugin.GlueHereMsg },
             { "Bomb!", Plugin.BombMsg }
         };
-
-        // handles getting the custom message
         public static string GetCustomMessage(string defaultMessage)
         {
             if (!Plugin.Enabled.Value)

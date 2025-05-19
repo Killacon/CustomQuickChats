@@ -6,7 +6,7 @@ using UnityEngine;
 
 namespace CustomQuickChats
 {
-    [BepInPlugin("customquickchats.killacon", "Custom Quick Chats", "0.2")]
+    [BepInPlugin("customquickchats.killacon", "Custom Quick Chats", "0.3")]
     public class Plugin : BaseUnityPlugin
     {
         public static ConfigEntry<bool> Enabled;
@@ -51,7 +51,7 @@ namespace CustomQuickChats
         public static ConfigEntry<string> SorryMsg;
         public static ConfigEntry<string> NoProblemMsg;
 
-        public static ConfigEntry<int> CustomNetID;
+        //public static ConfigEntry<int> CustomNetID;
 
         internal ManualLogSource mls;
         private static Plugin Instance;
