@@ -1,7 +1,6 @@
 ﻿using HarmonyLib; 
 using System.Collections.Generic;
 using BepInEx.Configuration;
-using UnityEngine.Networking;
 
 // TODO
 // add controller support
